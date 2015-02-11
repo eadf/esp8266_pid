@@ -11,19 +11,19 @@
 #define pid_micros() (0x7FFFFFFF & system_get_time())
 #define pid_millis() (0x7FFFFFFF & system_get_time())*1000
 
-void pid_reInitialize(Pid* self);
+void ICACHE_FLASH_ATTR pid_reInitialize(Pid* self);
 
 /*Constructor (...)*********************************************************
  *    The parameters specified here are those for for which we can't set up
  *    reliable defaults, so we need to have the user set them.
  ***************************************************************************/
 void ICACHE_FLASH_ATTR
-pid_init(Pid* self, float* Input, float* Output, float* Setpoint, float Kp,
-         float Ki, float Kd, int controllerDirection) {
+pid_init(Pid* self, float* input, float* output, float* setpoint, float kp,
+         float ki, float kd, Pid_Direction controllerDirection) {
 
-  self->myOutput = Output;
-  self->myInput = Input;
-  self->mySetpoint = Setpoint;
+  self->myOutput = output;
+  self->myInput = input;
+  self->mySetpoint = setpoint;
   self->inAuto = false;
 
   pid_setOutputLimits(self, 0, 255);  //default output limit corresponds to
@@ -32,8 +32,9 @@ pid_init(Pid* self, float* Input, float* Output, float* Setpoint, float Kp,
   self->sampleTime = 100;        //default Controller Sample Time is 0.1 seconds
 
   pid_setControllerDirection(self, controllerDirection);
-  pid_setTunings(self, self->kp, self->ki, self->kd);
+  pid_setTunings(self, kp, ki, kd);
 
+  // fake last sample time
   self->lastTime = pid_micros() - self->sampleTime;
 }
 
@@ -84,21 +85,21 @@ pid_compute(Pid* self) {
  * be adjusted on the fly during normal operation
  ******************************************************************************/
 void ICACHE_FLASH_ATTR
-pid_setTunings(Pid* self, float Kp, float Ki, float Kd) {
+pid_setTunings(Pid* self, float kp, float ki, float kd) {
 
-  if (Kp < 0 || Ki < 0 || Kd < 0)
+  if (kp < 0 || ki < 0 || kd < 0)
     return;
 
-  self->dispKp = Kp;
-  self->dispKi = Ki;
-  self->dispKd = Kd;
+  self->dispKp = kp;
+  self->dispKi = ki;
+  self->dispKd = kd;
 
   float SampleTimeInSec = ((float) self->sampleTime) / 1000;
-  self->kp = Kp;
-  self->ki = Ki * SampleTimeInSec;
-  self->kd = Kd / SampleTimeInSec;
+  self->kp = kp;
+  self->ki = ki * SampleTimeInSec;
+  self->kd = kd / SampleTimeInSec;
 
-  if (self->controllerDirection == REVERSE) {
+  if (self->controllerDirection == PID_REVERSE) {
     self->kp = (0 - self->kp);
     self->ki = (0 - self->ki);
     self->kd = (0 - self->kd);
@@ -149,14 +150,14 @@ pid_setOutputLimits(Pid* self, float newMin, float newMax) {
 }
 
 /* setMode(...)****************************************************************
- * Allows the controller Mode to be set to manual (false) or Automatic (true)
- * when the transition from manual to auto occurs, the controller is
+ * Allows the controller Mode to be set to PID_MANUAL or PID_AUTOMATIC
+ * when the transition from PID_MANUAL to auto occurs, the controller is
  * automatically initialized
  ******************************************************************************/
 void ICACHE_FLASH_ATTR
-pid_setMode(Pid* self, OperationMode newMode) {
+pid_setMode(Pid* self, Pid_OperationMode newMode) {
 
-  if (newMode == !(self->inAuto)) { /*we just went from manual to auto*/
+  if (newMode == !(self->inAuto)) { /*we just went from PID_MANUAL to auto*/
     pid_reInitialize(self);
   }
   self->inAuto = newMode;
@@ -164,7 +165,7 @@ pid_setMode(Pid* self, OperationMode newMode) {
 
 /* pid_reInitialize()**********************************************************
  *  does all the things that need to happen to ensure a bumpless transfer
- *  from manual to automatic mode.
+ *  from PID_MANUAL to PID_AUTOMATIC mode.
  ******************************************************************************/
 void ICACHE_FLASH_ATTR
 pid_reInitialize(Pid* self) {
@@ -179,12 +180,12 @@ pid_reInitialize(Pid* self) {
 
 /* SetControllerDirection(...)*************************************************
  * The PID will either be connected to a DIRECT acting process (+Output leads
- * to +Input) or a REVERSE acting process(+Output leads to -Input.)  we need to
+ * to +Input) or a reverse acting process(+Output leads to -Input.)  we need to
  * know which one, because otherwise we may increase the output when we should
  * be decreasing.  This is called from the constructor.
  ******************************************************************************/
 void ICACHE_FLASH_ATTR
-pid_setControllerDirection(Pid* self, int direction) {
+pid_setControllerDirection(Pid* self, Pid_Direction direction) {
 
   if (self->inAuto && direction != self->controllerDirection) {
     self->kp = (0 - self->kp);
@@ -216,10 +217,10 @@ pid_getKd(Pid* self) {
 
 int ICACHE_FLASH_ATTR
 pid_getMode(Pid* self) {
-  return self->inAuto ? AUTOMATIC : MANUAL;
+  return self->inAuto ? PID_AUTOMATIC : PID_MANUAL;
 }
 
-int ICACHE_FLASH_ATTR
+Pid_Direction ICACHE_FLASH_ATTR
 pid_getDirection(Pid* self) {
   return self->controllerDirection;
 }

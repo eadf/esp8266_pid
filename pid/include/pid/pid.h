@@ -12,12 +12,12 @@
 #include "c_types.h"
 
 typedef enum {
-  AUTOMATIC = 1, MANUAL = 0
-} OperationMode;
+	PID_AUTOMATIC = 1, PID_MANUAL = 0
+} Pid_OperationMode;
 
 typedef enum {
-  DIRECT = 3, REVERSE = 4
-} Direction;
+  PID_DIRECT = 3, PID_REVERSE = 4
+} Pid_Direction;
 
 
 typedef struct {
@@ -44,15 +44,16 @@ typedef struct {
 
   uint32_t sampleTime;
   float outMin, outMax;
-  OperationMode inAuto;
+  Pid_OperationMode inAuto;
 
 } Pid;
 
 // * constructor.  links the PID to the Input, Output, and
 //   Setpoint.  Initial tuning parameters are also set here
-void pid_init(Pid* self, float*, float*, float*, float, float, float, int);
+void pid_init(Pid* self, float* input, float* output, float* setpoint, float kp,
+        float ki, float kd, Pid_Direction controllerDirection);
 
-void pid_setMode(Pid* self, OperationMode newMode); // * sets PID to either Manual (0) or Auto (non-0)
+void pid_setMode(Pid* self, Pid_OperationMode newMode); // * sets PID to either Manual (0) or Auto (non-0)
 
 // performs the PID calculation.  it should be
 // called every time loop() cycles. ON/OFF and
@@ -76,7 +77,7 @@ void pid_setTunings(Pid* self, float, float, float);
 //   means the output will increase when error is positive. REVERSE
 //   means the opposite.  it's very unlikely that this will be needed
 //   once it is set in the constructor.
-void pid_setControllerDirection(Pid* self, int);
+void pid_setControllerDirection(Pid* self, Pid_Direction);
 
 // * sets the frequency, in Milliseconds, with which
 //   the PID calculation is performed.  default is 100
@@ -87,6 +88,6 @@ float pid_getKp(Pid* self);   // These functions query the pid for interal value
 float pid_getKi(Pid* self);    //  they were created mainly for the pid front-end,
 float pid_getKd(Pid* self);       // where it's important to know what is actually
 int pid_getMode(Pid* self);              //  inside the PID.
-int pid_getDirection(Pid* self);           //
+Pid_Direction pid_getDirection(Pid* self);           //
 
 #endif /* PID_INCLUDE_PID_PID_H_ */
