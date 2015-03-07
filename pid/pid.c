@@ -7,9 +7,10 @@
  **********************************************************************************************/
 
 #include "pid/pid.h"
+#include "osapi.h"
 
-#define pid_micros() (0x7FFFFFFF & system_get_time())
-#define pid_millis() (0x7FFFFFFF & system_get_time())*1000
+#define pid_micros() system_get_time()
+#define pid_millis() (system_get_time()/1000)
 
 void ICACHE_FLASH_ATTR pid_reInitialize(Pid* self);
 
@@ -35,7 +36,7 @@ pid_init(Pid* self, float* input, float* output, float* setpoint, float kp,
   pid_setTunings(self, kp, ki, kd);
 
   // fake last sample time
-  self->lastTime = pid_micros() - self->sampleTime;
+  self->lastTime = pid_millis() - self->sampleTime;
 }
 
 /* Compute() **********************************************************************
@@ -47,11 +48,21 @@ pid_init(Pid* self, float* input, float* output, float* setpoint, float kp,
 bool ICACHE_FLASH_ATTR
 pid_compute(Pid* self) {
 
+  static uint32_t iterations = 0;
+  iterations++;
+
+  //os_printf("PID: inAuto=%s\n", self->inAuto?"true":"false");
+
   if (!self->inAuto)
     return false;
+
   uint32_t now = pid_millis();
   uint32_t timeChange = (now - self->lastTime);
+  if (iterations%5==0)
+    os_printf("PID: input=%d mySetpoint=%d timeChange=%d sampleTime=%d\n", (int)*(self->myInput), (int)*(self->mySetpoint), timeChange, self->sampleTime );
+
   if (timeChange >= self->sampleTime) {
+
     /*Compute all the working error variables*/
     float input = *(self->myInput);
     float error = *(self->mySetpoint) - input;
@@ -69,6 +80,9 @@ pid_compute(Pid* self) {
       output = self->outMax;
     else if (output < self->outMin)
       output = self->outMin;
+
+    if (iterations%5==0) os_printf("PID: output=%d\n", (int)output);
+
     *(self->myOutput) = output;
 
     /*Remember some variables for next time*/
